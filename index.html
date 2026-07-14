@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Header Analyzer</title>
+<meta name="description" content="Paste raw email headers to see the delivery path, SPF, DKIM and DMARC results, and possible spoofing indicators. Runs entirely in your browser.">
+<link rel="canonical" href="https://0xelitesystem.github.io/email-header-analyzer/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Email Header Analyzer">
+<meta property="og:description" content="Paste raw email headers to see the delivery path, SPF, DKIM and DMARC results, and possible spoofing indicators. Runs entirely in your browser.">
+<meta property="og:url" content="https://0xelitesystem.github.io/email-header-analyzer/">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Email Header Analyzer",
+  "description": "Paste raw email headers to see the delivery path, SPF, DKIM and DMARC results, and possible spoofing indicators. Runs entirely in your browser.",
+  "url": "https://0xelitesystem.github.io/email-header-analyzer/",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Any",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "author": { "@type": "Organization", "name": "0xelitesystem" }
+}
+</script>
+<style>
+:root {
+  --bg: #fafaf6;
+  --surface: #ffffff;
+  --ink: #0a1d1e;
+  --ink-soft: #2c4a4c;
+  --rule: #c8d4d3;
+  --teal: #0f5c60;
+  --teal-deep: #0a4548;
+  --gold: #b07d2a;
+  --gold-deep: #8a611f;
+  --ok: #1a5c2e;
+  --warn: #8a5a00;
+  --err: #8b1a1a;
+  --code-bg: #f0ebe1;
+}
+[data-theme="dark"] {
+  --bg: #0c1c1d;
+  --surface: #14292a;
+  --ink: #e8ebe6;
+  --ink-soft: #b0c0bd;
+  --rule: #2a4042;
+  --teal: #4ab4ba;
+  --teal-deep: #6dc8ce;
+  --gold: #d4a155;
+  --gold-deep: #e6b876;
+  --ok: #6dd380;
+  --warn: #d4a155;
+  --err: #e88080;
+  --code-bg: #0a1718;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  padding: 2rem 1rem;
+  line-height: 1.55;
+}
+.wrap { max-width: 1100px; margin: 0 auto; }
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: 2px solid var(--teal);
+  padding-bottom: 1rem;
+  margin-bottom: 2rem;
+}
+h1 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--teal);
+}
+.tag {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.75rem;
+  color: var(--gold-deep);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+[data-theme="dark"] .tag { color: var(--gold); }
+.theme-btn {
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--ink-soft);
+  padding: 0.4rem 0.85rem;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+}
+.theme-btn:hover { border-color: var(--teal); color: var(--teal); }
+.lede {
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+  margin-bottom: 1.75rem;
+  max-width: 65ch;
+}
+.input-box {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: 1.25rem;
+  margin-bottom: 1.75rem;
+  border-radius: 3px;
+}
+label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+textarea {
+  width: 100%;
+  min-height: 200px;
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  color: var(--ink);
+  padding: 0.85rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85rem;
+  line-height: 1.55;
+  resize: vertical;
+  border-radius: 2px;
+}
+textarea:focus { outline: 2px solid var(--teal); outline-offset: 1px; }
+.input-row {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+button {
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 2px;
+}
+button:hover { border-color: var(--teal); }
+button.primary {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: var(--surface);
+  font-weight: 600;
+}
+[data-theme="dark"] button.primary { color: var(--bg) !important; }
+button.primary:hover { background: var(--teal-deep); border-color: var(--teal-deep); }
+.privacy-note {
+  font-size: 0.78rem;
+  color: var(--gold-deep);
+  margin-top: 0.5rem;
+}
+[data-theme="dark"] .privacy-note { color: var(--gold); }
+.results { display: none; }
+.results.show { display: block; }
+.section {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+  border-radius: 3px;
+}
+.section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.85rem;
+}
+.kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.45rem 1.25rem;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85rem;
+}
+.kv .k { color: var(--ink-soft); }
+.kv .v { color: var(--ink); word-break: break-word; }
+.auth-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.auth-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.82rem;
+  border: 1px solid var(--rule);
+  padding: 0.4rem 0.75rem;
+  border-radius: 2px;
+}
+.dot { display: inline-block; width: 0.6rem; height: 0.6rem; border-radius: 50%; }
+.dot-ok { background: var(--ok); }
+.dot-warn { background: var(--warn); }
+.dot-err { background: var(--err); }
+.dot-neutral { background: var(--ink-soft); }
+.auth-detail { font-size: 0.8rem; color: var(--ink-soft); margin-top: 0.5rem; }
+.hop {
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--teal);
+  border-radius: 3px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
+}
+.hop-num {
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: var(--gold-deep);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+[data-theme="dark"] .hop-num { color: var(--gold); }
+.hop-line { margin-top: 0.3rem; }
+.hop-line .hk { color: var(--ink-soft); font-family: ui-monospace, monospace; font-size: 0.78rem; }
+.hop-line .hv { color: var(--ink); font-family: ui-monospace, monospace; font-size: 0.8rem; word-break: break-word; }
+.flag {
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--warn);
+  border-radius: 3px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.86rem;
+}
+.flag.danger { border-left-color: var(--err); }
+.flag.ok { border-left-color: var(--ok); }
+.flag-title { font-weight: 600; margin-bottom: 0.25rem; }
+.raw-toggle { margin-top: 0.5rem; }
+pre {
+  background: var(--code-bg);
+  padding: 0.85rem;
+  border-radius: 2px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
+}
+.error-msg {
+  color: var(--err);
+  font-size: 0.85rem;
+  margin-top: 0.85rem;
+  padding: 0.65rem;
+  background: var(--code-bg);
+  border-left: 3px solid var(--err);
+  border-radius: 2px;
+}
+footer {
+  margin-top: 3rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+}
+footer a { color: var(--teal); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+@media (max-width: 640px) {
+  body { padding: 1rem 0.75rem; }
+  h1 { font-size: 1.4rem; }
+  .kv { grid-template-columns: 1fr; gap: 0.1rem 0; }
+  .kv .k { margin-top: 0.4rem; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div>
+    <h1>Email Header Analyzer</h1>
+    <div class="tag">Trace the delivery path in your browser</div>
+  </div>
+  <button class="theme-btn" id="theme-toggle" type="button">Dark</button>
+</header>
+
+<p class="lede">Paste the raw headers of an email and this tool reconstructs the delivery path from the Received chain, surfaces the SPF, DKIM and DMARC results, and flags mismatches that can indicate spoofing. This is a defensive and educational tool: it reads text only and nothing leaves this page. It does not fetch DNS or re-check any signature, it just reports what the headers say.</p>
+
+<div class="input-box">
+  <label for="hdr-input">Raw headers</label>
+  <textarea id="hdr-input" placeholder="Paste everything from the top of the message down to the first blank line. In most clients look for 'Show original', 'View source', or 'View message headers'." spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+  <div class="input-row">
+    <button class="primary" id="analyze-btn" type="button">Analyze</button>
+    <button id="sample-btn" type="button">Load sample</button>
+    <button id="clear-btn" type="button">Clear</button>
+  </div>
+  <div class="privacy-note">All parsing happens locally. The headers are never sent to any server.</div>
+</div>
+
+<div class="results" id="results">
+  <div class="section">
+    <div class="section-title">Message summary</div>
+    <div class="kv" id="summary-kv"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Authentication results</div>
+    <div class="auth-row" id="auth-row"></div>
+    <div class="auth-detail" id="auth-detail"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Spoofing indicators</div>
+    <div id="flags"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Delivery path (Received chain, oldest first)</div>
+    <div id="hops"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">All parsed headers</div>
+    <button id="toggle-raw" type="button">Show all headers</button>
+    <pre id="raw-headers" style="display:none; margin-top: 0.85rem;"></pre>
+  </div>
+</div>
+
+<div id="error-box"></div>
+
+<footer>
+  <div>Email Header Analyzer. Open source, MIT licensed. Built by <a href="https://elitesystem.ai" target="_blank" rel="noopener">elitesystem.ai</a>.</div>
+  <div>Defensive tooling. No external dependencies, works offline.</div>
+</footer>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+const themeBtn = $("theme-toggle");
+function setTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+  themeBtn.textContent = t === "dark" ? "Light" : "Dark";
+}
+themeBtn.addEventListener("click", () => {
+  const cur = document.documentElement.getAttribute("data-theme") || "light";
+  setTheme(cur === "dark" ? "light" : "dark");
+});
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Unfold headers: a line starting with whitespace continues the previous header.
+function parseHeaders(text) {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  const headers = [];
+  let current = null;
+  for (const line of lines) {
+    if (line.trim() === "" && headers.length > 0 && current === null) continue;
+    if (/^[ \t]/.test(line) && current !== null) {
+      current.value += " " + line.trim();
+    } else {
+      const idx = line.indexOf(":");
+      if (idx === -1) {
+        // not a header line; if we hit body, stop
+        if (headers.length > 0 && line.trim() === "") break;
+        continue;
+      }
+      current = { name: line.slice(0, idx).trim(), value: line.slice(idx + 1).trim() };
+      headers.push(current);
+    }
+  }
+  return headers;
+}
+
+function getFirst(headers, name) {
+  const h = headers.find(h => h.name.toLowerCase() === name.toLowerCase());
+  return h ? h.value : null;
+}
+function getAll(headers, name) {
+  return headers.filter(h => h.name.toLowerCase() === name.toLowerCase()).map(h => h.value);
+}
+
+function extractDomain(addr) {
+  if (!addr) return null;
+  const m = addr.match(/@([A-Za-z0-9.\-]+)/);
+  return m ? m[1].toLowerCase().replace(/[>\s].*$/, "") : null;
+}
+
+function parseReceived(value) {
+  // Extract from, by, with, id, and the timestamp after the final ";"
+  const hop = { from: null, by: null, with: null, id: null, date: null, raw: value };
+  const fromM = value.match(/\bfrom\s+([^\s;]+(?:\s+\([^)]*\))?)/i);
+  if (fromM) hop.from = fromM[1].trim();
+  const byM = value.match(/\bby\s+([^\s;]+(?:\s+\([^)]*\))?)/i);
+  if (byM) hop.by = byM[1].trim();
+  const withM = value.match(/\bwith\s+([^\s;]+)/i);
+  if (withM) hop.with = withM[1].trim();
+  const idM = value.match(/\bid\s+([^\s;]+)/i);
+  if (idM) hop.id = idM[1].trim();
+  const semi = value.lastIndexOf(";");
+  if (semi !== -1) {
+    const ds = value.slice(semi + 1).trim();
+    const d = new Date(ds);
+    if (!isNaN(d.getTime())) hop.date = { text: ds, iso: d.toISOString(), ms: d.getTime() };
+    else hop.date = { text: ds, iso: null, ms: null };
+  }
+  return hop;
+}
+
+function classifyResult(res) {
+  if (!res) return "neutral";
+  const r = res.toLowerCase();
+  if (r === "pass") return "ok";
+  if (r === "fail" || r === "softfail" || r === "permerror" || r === "hardfail") return "err";
+  if (r === "neutral" || r === "none" || r === "temperror") return "warn";
+  return "neutral";
+}
+
+// From Authentication-Results, pull method=result and any properties like header.d / smtp.mailfrom
+function parseAuthResults(headers) {
+  const arValues = getAll(headers, "Authentication-Results");
+  const out = { spf: null, dkim: null, dmarc: null, dkimD: null, spfMailfrom: null, raw: arValues };
+  const joined = arValues.join(" ; ");
+  const spfM = joined.match(/\bspf=(\w+)/i);
+  if (spfM) out.spf = spfM[1];
+  const dkimM = joined.match(/\bdkim=(\w+)/i);
+  if (dkimM) out.dkim = dkimM[1];
+  const dmarcM = joined.match(/\bdmarc=(\w+)/i);
+  if (dmarcM) out.dmarc = dmarcM[1];
+  const dM = joined.match(/header\.d=([A-Za-z0-9.\-]+)/i);
+  if (dM) out.dkimD = dM[1].toLowerCase();
+  const mfM = joined.match(/smtp\.mailfrom=([A-Za-z0-9.@\-]+)/i);
+  if (mfM) out.spfMailfrom = mfM[1].toLowerCase();
+
+  // Received-SPF fallback
+  if (!out.spf) {
+    const rspf = getFirst(headers, "Received-SPF");
+    if (rspf) {
+      const m = rspf.match(/^\s*(\w+)/);
+      if (m) out.spf = m[1];
+    }
+  }
+  // DKIM d= from DKIM-Signature as fallback
+  if (!out.dkimD) {
+    const sig = getFirst(headers, "DKIM-Signature");
+    if (sig) {
+      const m = sig.match(/\bd=([A-Za-z0-9.\-]+)/i);
+      if (m) out.dkimD = m[1].toLowerCase();
+    }
+  }
+  return out;
+}
+
+function analyze() {
+  $("error-box").innerHTML = "";
+  const text = $("hdr-input").value;
+  if (!text.trim()) {
+    $("error-box").innerHTML = '<div class="error-msg">Paste raw email headers to analyze.</div>';
+    $("results").classList.remove("show");
+    return;
+  }
+  const headers = parseHeaders(text);
+  if (headers.length === 0) {
+    $("error-box").innerHTML = '<div class="error-msg">No headers detected. Make sure you pasted the raw headers (each is like Name: value).</div>';
+    $("results").classList.remove("show");
+    return;
+  }
+
+  // Summary
+  const fromH = getFirst(headers, "From");
+  const toH = getFirst(headers, "To");
+  const subj = getFirst(headers, "Subject");
+  const date = getFirst(headers, "Date");
+  const msgId = getFirst(headers, "Message-ID") || getFirst(headers, "Message-Id");
+  const returnPath = getFirst(headers, "Return-Path");
+
+  const summary = [
+    ["From", fromH],
+    ["To", toH],
+    ["Subject", subj],
+    ["Date", date],
+    ["Message-ID", msgId],
+    ["Return-Path", returnPath]
+  ];
+  $("summary-kv").innerHTML = summary.map(([k, v]) =>
+    '<div class="k">' + escapeHtml(k) + '</div><div class="v">' + (v ? escapeHtml(v) : '<span style="color:var(--ink-soft)">(not present)</span>') + '</div>'
+  ).join("");
+
+  // Auth
+  const auth = parseAuthResults(headers);
+  const chips = [
+    ["SPF", auth.spf],
+    ["DKIM", auth.dkim],
+    ["DMARC", auth.dmarc]
+  ];
+  $("auth-row").innerHTML = chips.map(([name, res]) => {
+    const cls = classifyResult(res);
+    return '<div class="auth-chip"><span class="dot dot-' + cls + '"></span>' +
+      escapeHtml(name) + ': ' + escapeHtml(res || "not present") + '</div>';
+  }).join("");
+
+  const detailBits = [];
+  if (auth.spfMailfrom) detailBits.push("SPF checked envelope from (smtp.mailfrom): " + auth.spfMailfrom);
+  if (auth.dkimD) detailBits.push("DKIM signing domain (d=): " + auth.dkimD);
+  detailBits.push("SPF verifies the sending server against the envelope sender's DNS. DKIM verifies a cryptographic signature over the message. DMARC ties them to the visible From domain and tells receivers what to do on failure.");
+  $("auth-detail").innerHTML = detailBits.map(escapeHtml).join("<br>");
+
+  // Spoofing flags
+  const flags = [];
+  const fromDomain = extractDomain(fromH);
+  const rpDomain = extractDomain(returnPath);
+
+  if (fromDomain && rpDomain && fromDomain !== rpDomain) {
+    flags.push({ level: "danger", title: "From domain does not match Return-Path domain",
+      body: "Visible From is @" + fromDomain + " but the Return-Path (envelope sender) is @" + rpDomain + ". Legitimate bulk mail often uses a different bounce domain, but a mismatch is also a classic spoofing and phishing signal. Cross-check with the DMARC result." });
+  } else if (fromDomain && rpDomain) {
+    flags.push({ level: "ok", title: "From domain matches Return-Path domain",
+      body: "Both are @" + fromDomain + "." });
+  }
+
+  if (fromDomain && auth.dkimD) {
+    const aligned = fromDomain === auth.dkimD || fromDomain.endsWith("." + auth.dkimD) || auth.dkimD.endsWith("." + fromDomain);
+    if (!aligned) {
+      flags.push({ level: "danger", title: "DKIM signing domain not aligned with From",
+        body: "From is @" + fromDomain + " but the DKIM d= is " + auth.dkimD + ". For DMARC to pass on DKIM, these normally need to align. A mismatch can indicate a forwarded or spoofed message." });
+    } else {
+      flags.push({ level: "ok", title: "DKIM signing domain aligns with From",
+        body: "From @" + fromDomain + " aligns with DKIM d=" + auth.dkimD + "." });
+    }
+  }
+
+  if (classifyResult(auth.spf) === "err") {
+    flags.push({ level: "danger", title: "SPF did not pass",
+      body: "The Authentication-Results report SPF=" + auth.spf + ". The sending server is not authorized by the envelope sender's SPF record, or SPF could not be evaluated." });
+  }
+  if (classifyResult(auth.dmarc) === "err") {
+    flags.push({ level: "danger", title: "DMARC did not pass",
+      body: "DMARC=" + auth.dmarc + ". The message failed the receiver's DMARC alignment and policy checks. Treat with suspicion." });
+  }
+  if (!auth.spf && !auth.dkim && !auth.dmarc) {
+    flags.push({ level: "warn", title: "No authentication results found",
+      body: "There is no Authentication-Results or Received-SPF header. Either your mail provider did not add one, or you did not paste the full header block. Absence of results is not proof of anything on its own." });
+  }
+  if (flags.length === 0) {
+    flags.push({ level: "ok", title: "No obvious mismatches detected",
+      body: "The heuristics did not find a From/Return-Path or DKIM alignment mismatch. This is not a guarantee the message is genuine. Always judge in context." });
+  }
+
+  $("flags").innerHTML = flags.map(f =>
+    '<div class="flag ' + (f.level === "danger" ? "danger" : f.level === "ok" ? "ok" : "") + '">' +
+      '<div class="flag-title">' + escapeHtml(f.title) + '</div>' +
+      '<div>' + escapeHtml(f.body) + '</div>' +
+    '</div>'
+  ).join("");
+
+  // Received chain. Headers appear newest-first; reverse for chronological (oldest first).
+  const received = getAll(headers, "Received").map(parseReceived).reverse();
+  if (received.length === 0) {
+    $("hops").innerHTML = '<div style="font-size:0.85rem;color:var(--ink-soft)">No Received headers found.</div>';
+  } else {
+    $("hops").innerHTML = received.map((hop, i) => {
+      const rows = [];
+      if (hop.from) rows.push(['from', hop.from]);
+      if (hop.by) rows.push(['by', hop.by]);
+      if (hop.with) rows.push(['with', hop.with]);
+      if (hop.id) rows.push(['id', hop.id]);
+      if (hop.date) rows.push(['time', hop.date.iso ? (hop.date.iso + "  (" + hop.date.text + ")") : hop.date.text]);
+      let delta = "";
+      if (i > 0 && hop.date && hop.date.ms !== null && received[i-1].date && received[i-1].date.ms !== null) {
+        const d = hop.date.ms - received[i-1].date.ms;
+        if (d >= 0) delta = ' <span style="color:var(--ink-soft)">(+' + Math.round(d/1000) + 's from previous hop)</span>';
+      }
+      return '<div class="hop">' +
+        '<div class="hop-num">Hop ' + (i + 1) + delta + '</div>' +
+        rows.map(([k, v]) => '<div class="hop-line"><span class="hk">' + k + ': </span><span class="hv">' + escapeHtml(v) + '</span></div>').join("") +
+      '</div>';
+    }).join("");
+  }
+
+  // Raw parsed headers
+  $("raw-headers").textContent = headers.map(h => h.name + ": " + h.value).join("\n");
+
+  $("results").classList.add("show");
+}
+
+$("toggle-raw").addEventListener("click", () => {
+  const pre = $("raw-headers");
+  const showing = pre.style.display !== "none";
+  pre.style.display = showing ? "none" : "block";
+  $("toggle-raw").textContent = showing ? "Show all headers" : "Hide all headers";
+});
+
+const SAMPLE = `Delivery-Path: <alice@example.com>
+Return-Path: <bounce@mail.newsletter-co.com>
+Received: from mx.recipient.net (mx.recipient.net [203.0.113.10])
+        by inbox.recipient.net (Postfix) with ESMTPS id 9F2A1
+        for <bob@recipient.net>; Tue, 10 Jun 2026 14:03:22 +0000 (UTC)
+Received: from smtp.newsletter-co.com (smtp.newsletter-co.com [198.51.100.5])
+        by mx.recipient.net (Postfix) with ESMTPS id 4C88B
+        for <bob@recipient.net>; Tue, 10 Jun 2026 14:03:19 +0000 (UTC)
+Received: from app-01.newsletter-co.com (app-01.newsletter-co.com [198.51.100.20])
+        by smtp.newsletter-co.com (Postfix) with ESMTP id 1122A
+        for <bob@recipient.net>; Tue, 10 Jun 2026 14:03:17 +0000 (UTC)
+Authentication-Results: mx.recipient.net;
+        spf=pass smtp.mailfrom=mail.newsletter-co.com;
+        dkim=pass header.d=newsletter-co.com;
+        dmarc=pass header.from=newsletter-co.com
+Received-SPF: pass (mx.recipient.net: domain of mail.newsletter-co.com designates 198.51.100.5 as permitted sender)
+DKIM-Signature: v=1; a=rsa-sha256; d=newsletter-co.com; s=sel1; h=from:to:subject:date
+From: Newsletter Co <news@newsletter-co.com>
+To: Bob <bob@recipient.net>
+Subject: Your weekly digest
+Date: Tue, 10 Jun 2026 14:03:15 +0000
+Message-ID: <20260610140315.abc123@newsletter-co.com>`;
+
+$("sample-btn").addEventListener("click", () => { $("hdr-input").value = SAMPLE; analyze(); });
+$("clear-btn").addEventListener("click", () => {
+  $("hdr-input").value = "";
+  $("results").classList.remove("show");
+  $("error-box").innerHTML = "";
+});
+$("analyze-btn").addEventListener("click", analyze);
+$("hdr-input").addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") analyze();
+});
+
+setTheme("light");
+</script>
+</body>
+</html>
